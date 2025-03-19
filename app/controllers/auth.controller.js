@@ -72,6 +72,9 @@ exports.login = async (req, res, next) => {
       return next(new ApiError(401, "Invalid credentials"));
     }
 
+    // Thêm role vào đối tượng user
+    user.role = isAdmin ? "admin" : "user";
+
     // Generate JWT token
     const token = jwt.sign(
       { id: user._id, role: isAdmin ? "admin" : "user" },

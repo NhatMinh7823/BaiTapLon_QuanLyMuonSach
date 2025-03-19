@@ -14,7 +14,7 @@ class DocGiaService {
       diaChi: payload.diaChi,
       dienThoai: payload.dienThoai,
       email: payload.email,
-      password: payload.password,
+      password: payload.password, // Password should already be hashed in controller
       role: payload.role || "user",
     };
 
@@ -27,6 +27,7 @@ class DocGiaService {
   }
 
   async create(payload) {
+    // Password should be hashed in controller before calling this method
     const docgia = this.extractDocGiaData(payload);
     const result = await this.DocGia.findOneAndUpdate(
       { email: docgia.email },
@@ -34,7 +35,7 @@ class DocGiaService {
       { returnDocument: "after", upsert: true }
     );
 
-    return result;
+   return result.value || (result.ok && result);
   }
 
   async find(filter) {
@@ -52,9 +53,11 @@ class DocGiaService {
   }
 
   async findById(id) {
-    return await this.DocGia.findOne({
-      _id: ObjectId.isValid(id) ? new ObjectId(id) : null,
-    });
+    // Improved ObjectId validation - return null if id is invalid
+    if (!ObjectId.isValid(id)) {
+      return null;
+    }
+    return await this.DocGia.findOne({ _id: new ObjectId(id) });
   }
 
   async findByEmail(email) {
@@ -62,9 +65,12 @@ class DocGiaService {
   }
 
   async update(id, payload) {
-    const filter = {
-      _id: ObjectId.isValid(id) ? new ObjectId(id) : null,
-    };
+    // Improved ObjectId validation - return null if id is invalid
+    if (!ObjectId.isValid(id)) {
+      return null;
+    }
+
+    const filter = { _id: new ObjectId(id) };
     const update = this.extractDocGiaData(payload);
     const result = await this.DocGia.findOneAndUpdate(
       filter,
@@ -76,8 +82,13 @@ class DocGiaService {
   }
 
   async delete(id) {
+    // Improved ObjectId validation - return null if id is invalid
+    if (!ObjectId.isValid(id)) {
+      return null;
+    }
+
     const result = await this.DocGia.findOneAndDelete({
-      _id: ObjectId.isValid(id) ? new ObjectId(id) : null,
+      _id: new ObjectId(id),
     });
 
     return result;
