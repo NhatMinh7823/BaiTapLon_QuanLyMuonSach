@@ -2,8 +2,10 @@ const TheoDoiMuonSachService = require("../models/theodoimuonsach.model");
 const SachService = require("../models/sach.model");
 const DocGiaService = require("../models/docgia.model");
 const NhanVienService = require("../models/nhanvien.model");
+const NhaXuatBanService = require("../models/nhaxuatban.model");
 const MongoDB = require("../utils/mongodb.util");
 const ApiError = require("../api-error");
+const { ObjectId } = require("mongodb");
 
 exports.create = async (req, res, next) => {
   if (!req.body?.maDocGia || !req.body?.maSach) {
@@ -45,16 +47,19 @@ exports.findAll = async (req, res, next) => {
     const sachService = new SachService(MongoDB.client);
     const docGiaService = new DocGiaService(MongoDB.client);
     const nhanVienService = new NhanVienService(MongoDB.client);
+    const nhaXuatBanService = new NhaXuatBanService(MongoDB.client);
 
     const { maDocGia, maSach, trangThai } = req.query;
     let filter = {};
 
     if (maDocGia) {
-      filter.maDocGia = maDocGia;
+      filter.maDocGia = ObjectId.isValid(maDocGia)
+        ? new ObjectId(maDocGia)
+        : null;
     }
 
     if (maSach) {
-      filter.maSach = maSach;
+      filter.maSach = ObjectId.isValid(maSach) ? new ObjectId(maSach) : null;
     }
 
     if (trangThai) {
@@ -63,10 +68,11 @@ exports.findAll = async (req, res, next) => {
 
     documents = await theoDoiMuonSachService.find(filter);
 
-    // Get all books and readers for populating data
+    // Get all books, publishers, readers and staff for populating data
     const books = await sachService.find({});
     const readers = await docGiaService.find({});
     const staff = await nhanVienService.find({});
+    const publishers = await nhaXuatBanService.find({});
 
     // Create maps for quick lookup
     const bookMap = {};
@@ -84,12 +90,26 @@ exports.findAll = async (req, res, next) => {
       staffMap[s._id.toString()] = s;
     });
 
+    const publisherMap = {};
+    publishers.forEach((pub) => {
+      publisherMap[pub._id.toString()] = pub;
+    });
+
     // Populate the documents with related data
     documents = documents.map((doc) => {
       const populatedDoc = { ...doc };
 
       if (doc.maSach && bookMap[doc.maSach.toString()]) {
         populatedDoc.sach = bookMap[doc.maSach.toString()];
+
+        // Add publisher info to book if available
+        if (
+          populatedDoc.sach.maNXB &&
+          publisherMap[populatedDoc.sach.maNXB.toString()]
+        ) {
+          populatedDoc.sach.nhaXuatBan =
+            publisherMap[populatedDoc.sach.maNXB.toString()];
+        }
       }
 
       if (doc.maDocGia && readerMap[doc.maDocGia.toString()]) {
@@ -105,6 +125,7 @@ exports.findAll = async (req, res, next) => {
 
     return res.send(documents);
   } catch (error) {
+    console.error("Server error:", error);
     return next(
       new ApiError(500, "An error occurred while retrieving borrow records")
     );
@@ -117,6 +138,7 @@ exports.findOne = async (req, res, next) => {
     const sachService = new SachService(MongoDB.client);
     const docGiaService = new DocGiaService(MongoDB.client);
     const nhanVienService = new NhanVienService(MongoDB.client);
+    const nhaXuatBanService = new NhaXuatBanService(MongoDB.client);
 
     const document = await theoDoiMuonSachService.findById(req.params.id);
     if (!document) {
@@ -126,6 +148,13 @@ exports.findOne = async (req, res, next) => {
     // Populate with related data
     if (document.maSach) {
       document.sach = await sachService.findById(document.maSach);
+
+      // Add publisher info to book if available
+      if (document.sach && document.sach.maNXB) {
+        document.sach.nhaXuatBan = await nhaXuatBanService.findById(
+          document.sach.maNXB
+        );
+      }
     }
 
     if (document.maDocGia) {

@@ -10,11 +10,7 @@ router.get("/:id", [authJwt.verifyToken], theodoimuonsach.findOne);
 router.post("/", [authJwt.verifyToken], theodoimuonsach.create);
 
 // Routes requiring admin privileges
-router.put(
-  "/:id",
-  [authJwt.verifyToken, authJwt.isAdmin],
-  theodoimuonsach.update
-);
+router.put("/:id", [authJwt.verifyToken], theodoimuonsach.update);
 router.delete(
   "/:id",
   [authJwt.verifyToken, authJwt.isAdmin],

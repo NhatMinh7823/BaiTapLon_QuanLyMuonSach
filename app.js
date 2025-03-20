@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const ApiError = require("./app/api-error");
+const requestLogger = require("./app/middlewares/logging.middleware");
 
 // Import routes
 const authRouter = require("./app/routes/auth.route");
@@ -16,6 +17,9 @@ const app = express();
 // Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Request logger for debugging
+app.use(requestLogger);
 
 // Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -35,6 +39,9 @@ app.use((req, res, next) => {
 
 // Handle errors
 app.use((err, req, res, next) => {
+  // Log error for debugging
+  console.error(`[${new Date().toISOString()}] Error:`, err);
+
   return res.status(err.statusCode || 500).json({
     message: err.message || "Internal Server Error",
   });

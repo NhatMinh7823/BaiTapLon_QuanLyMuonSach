@@ -1,9 +1,6 @@
 const jwt = require("jsonwebtoken");
 const config = require("../config");
 const ApiError = require("../api-error");
-const MongoDB = require("../utils/mongodb.util");
-const DocGiaService = require("../models/docgia.model");
-const NhanVienService = require("../models/nhanvien.model");
 
 const verifyToken = (req, res, next) => {
   const token =
