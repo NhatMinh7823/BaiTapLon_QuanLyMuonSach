@@ -185,17 +185,34 @@ exports.update = async (req, res, next) => {
 
   try {
     const theoDoiMuonSachService = new TheoDoiMuonSachService(MongoDB.client);
+
+    // Lấy bản ghi hiện tại trước khi cập nhật
+    const currentRecord = await theoDoiMuonSachService.findById(req.params.id);
+    if (!currentRecord) {
+      return next(new ApiError(404, "Borrow record not found"));
+    }
+
+    // Nếu req.body không có maDocGia và maSach, thêm vào từ bản ghi hiện tại
+    if (!req.body.maDocGia && currentRecord.maDocGia) {
+      req.body.maDocGia = currentRecord.maDocGia;
+    }
+
+    if (!req.body.maSach && currentRecord.maSach) {
+      req.body.maSach = currentRecord.maSach;
+    }
+
+    // Cập nhật với dữ liệu đã được điều chỉnh
     const document = await theoDoiMuonSachService.update(
       req.params.id,
       req.body
     );
 
-    if (!document) {
-      return next(new ApiError(404, "Borrow record not found"));
-    }
-
-    return res.send({ message: "Borrow record was updated successfully" });
+    return res.send({
+      message: "Borrow record was updated successfully",
+      record: document,
+    });
   } catch (error) {
+    console.error("Error updating borrow record:", error);
     return next(
       new ApiError(500, `Error updating borrow record with id=${req.params.id}`)
     );

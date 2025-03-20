@@ -52,7 +52,11 @@ class TheoDoiMuonSachService {
     const filter = {
       _id: ObjectId.isValid(id) ? new ObjectId(id) : null,
     };
+
+    // Đảm bảo dữ liệu được xử lý đúng trước khi cập nhật
     const update = this.extractTheoDoiMuonSachData(payload);
+
+    // Sử dụng $set thay vì thay thế toàn bộ document
     const result = await this.TheoDoiMuonSach.findOneAndUpdate(
       filter,
       { $set: update },
