@@ -29,13 +29,29 @@ class DocGiaService {
   async create(payload) {
     // Password should be hashed in controller before calling this method
     const docgia = this.extractDocGiaData(payload);
-    const result = await this.DocGia.findOneAndUpdate(
-      { email: docgia.email },
-      { $set: docgia },
-      { returnDocument: "after", upsert: true }
-    );
 
-   return result.value || (result.ok && result);
+    try {
+      console.log(
+        "Inserting document into MongoDB:",
+        JSON.stringify(docgia, null, 2)
+      );
+
+      // Sử dụng insertOne thay vì findOneAndUpdate để đơn giản hóa
+      const result = await this.DocGia.insertOne(docgia);
+      console.log("MongoDB insert result:", JSON.stringify(result, null, 2));
+
+      if (result.acknowledged) {
+        // Truy vấn lại document vừa tạo để trả về đầy đủ thông tin
+        const newUser = await this.DocGia.findOne({ _id: result.insertedId });
+        return newUser;
+      } else {
+        console.error("MongoDB insert not acknowledged:", result);
+        throw new Error("Failed to insert document");
+      }
+    } catch (error) {
+      console.error("Error creating document in MongoDB:", error);
+      throw error;
+    }
   }
 
   async find(filter) {

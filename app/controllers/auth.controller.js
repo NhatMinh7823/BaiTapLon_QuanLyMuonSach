@@ -8,6 +8,8 @@ const config = require("../config");
 
 exports.register = async (req, res, next) => {
   try {
+    console.log("Register request data:", JSON.stringify(req.body, null, 2));
+
     if (!req.body.email || !req.body.password) {
       return next(new ApiError(400, "Email and password are required"));
     }
@@ -21,21 +23,65 @@ exports.register = async (req, res, next) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    let hashedPassword;
+    try {
+      hashedPassword = await bcrypt.hash(req.body.password, 10);
+    } catch (hashError) {
+      console.error("Error hashing password:", hashError);
+      return next(new ApiError(500, "Error processing password"));
+    }
 
-    // Create new user
+    // Create new user with appropriate format
     const userData = {
-      ...req.body,
+      hoLot: req.body.hoLot || "",
+      ten: req.body.ten || "",
+      email: req.body.email,
       password: hashedPassword,
+      ngaySinh: req.body.ngaySinh ? new Date(req.body.ngaySinh) : null,
+      phai: req.body.phai || "Nam",
+      diaChi: req.body.diaChi || "",
+      dienThoai: req.body.dienThoai || "",
       role: "user",
     };
 
-    const user = await docGiaService.create(userData);
+    console.log("Processed user data:", JSON.stringify(userData, null, 2));
 
-    // Return user without password
-    const { password, ...userWithoutPassword } = user;
-    return res.status(201).send(userWithoutPassword);
+    // Save user to database
+    let user;
+    try {
+      user = await docGiaService.create(userData);
+      console.log("User created in database:", JSON.stringify(user, null, 2));
+    } catch (dbError) {
+      console.error("Error creating user in database:", dbError);
+      return next(new ApiError(500, "Error saving user to database"));
+    }
+
+    // Prepare response - handling potential issues
+    try {
+      // Ensure user object is as expected
+      if (!user || typeof user !== "object") {
+        console.error("Invalid user object returned:", user);
+        return next(
+          new ApiError(500, "Invalid user data returned from database")
+        );
+      }
+
+      // Create a safe copy without sensitive data
+      const safeUser = { ...user };
+
+      // Remove password if exists
+      if (safeUser.password) {
+        delete safeUser.password;
+      }
+
+      // Send safe response
+      return res.status(201).send(safeUser);
+    } catch (responseError) {
+      console.error("Error preparing response:", responseError);
+      return next(new ApiError(500, "Error preparing user response"));
+    }
   } catch (error) {
+    console.error("Unhandled error in register controller:", error);
     return next(
       new ApiError(500, "An error occurred while registering the user")
     );
