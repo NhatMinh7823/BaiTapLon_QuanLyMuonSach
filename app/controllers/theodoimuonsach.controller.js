@@ -185,34 +185,53 @@ exports.update = async (req, res, next) => {
 
   try {
     const theoDoiMuonSachService = new TheoDoiMuonSachService(MongoDB.client);
+    const sachService = new SachService(MongoDB.client);
 
-    // Lấy bản ghi hiện tại trước khi cập nhật
-    const currentRecord = await theoDoiMuonSachService.findById(req.params.id);
-    if (!currentRecord) {
+    // Lấy thông tin yêu cầu mượn sách hiện tại
+    const currentBorrow = await theoDoiMuonSachService.findById(req.params.id);
+    if (!currentBorrow) {
       return next(new ApiError(404, "Borrow record not found"));
     }
 
-    // Nếu req.body không có maDocGia và maSach, thêm vào từ bản ghi hiện tại
-    if (!req.body.maDocGia && currentRecord.maDocGia) {
-      req.body.maDocGia = currentRecord.maDocGia;
+    // Nếu đang thay đổi trạng thái từ pending sang approved
+    if (
+      currentBorrow.trangThai === "pending" &&
+      req.body.trangThai === "approved"
+    ) {
+      // Lấy thông tin sách
+      const book = await sachService.findById(currentBorrow.maSach);
+      if (!book) {
+        return next(new ApiError(404, "Book not found"));
+      }
+
+      // Kiểm tra số lượng sách còn lại
+      if (book.soQuyen <= 0) {
+        return next(new ApiError(400, "Book is not available for borrowing"));
+      }
+
+      // Giảm số lượng sách
+      await sachService.update(book._id, { soQuyen: book.soQuyen - 1 });
     }
 
-    if (!req.body.maSach && currentRecord.maSach) {
-      req.body.maSach = currentRecord.maSach;
+    // Nếu đang thay đổi trạng thái từ approved sang returned
+    if (
+      currentBorrow.trangThai === "approved" &&
+      (req.body.trangThai === "returned" || req.body.ngayTra)
+    ) {
+      // Lấy thông tin sách
+      const book = await sachService.findById(currentBorrow.maSach);
+      if (book) {
+        // Tăng số lượng sách
+        await sachService.update(book._id, { soQuyen: book.soQuyen + 1 });
+      }
     }
 
-    // Cập nhật với dữ liệu đã được điều chỉnh
     const document = await theoDoiMuonSachService.update(
       req.params.id,
       req.body
     );
-
-    return res.send({
-      message: "Borrow record was updated successfully",
-      record: document,
-    });
+    return res.send({ message: "Borrow record was updated successfully" });
   } catch (error) {
-    console.error("Error updating borrow record:", error);
     return next(
       new ApiError(500, `Error updating borrow record with id=${req.params.id}`)
     );
